@@ -3,7 +3,6 @@ node_modules/
 
 # Build output
 dist/
-build/
 
 # Environment variables
 .env
@@ -11,10 +10,10 @@ build/
 !.env.example
 
 # Database
-*.db
-*.db-journal
-*.sqlite
-*.sqlite3
+prisma/dev.db
+prisma/dev.db-journal
+prisma/*.db
+prisma/*.db-journal
 
 # Logs
 logs/
@@ -40,6 +39,10 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# NestJS / TypeScript
+*.js.map
+*.d.ts
 
 # Misc
 *.local

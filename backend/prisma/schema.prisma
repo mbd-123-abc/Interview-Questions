@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Employee {
+  id                    String               @id @default(uuid())
+  hcmEmployeeId         String               @unique
+  name                  String
+  email                 String               @unique
+  managerId             String?
+  manager               Employee?            @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports         Employee[]           @relation("EmployeeManager")
+  balances              Balance[]
+  ptoRequests           PTORequest[]         @relation("EmployeePtoRequests")
+  actionedPtoRequests   PTORequest[]         @relation("PTOActionedBy")
+  hcmBalanceSnapshots   HcmBalanceSnapshot[]
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+}
+
+model Location {
+  id                  String               @id @default(uuid())
+  code                String               @unique
+  name                String
+  timezone            String
+  balances            Balance[]
+  ptoRequests         PTORequest[]
+  hcmBalanceSnapshots HcmBalanceSnapshot[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model Balance {
+  id                    String                  @id @default(uuid())
+  employee              Employee                @relation(fields: [employeeId], references: [id])
+  employeeId            String
+  location              Location                @relation(fields: [locationId], references: [id])
+  locationId            String
+  balanceMinutes        Int                     @default(0)
+  pendingMinutes        Int                     @default(0)
+  version               Int                     @default(1)
+  hcmBalanceVersion     String?
+  lastSyncedAt          DateTime?
+  updatedAt             DateTime                @updatedAt
+  adjustmentEvents      BalanceAdjustmentEvent[]
+
+  @@unique([employeeId, locationId])
+}
+
+model PTORequest {
+  id               String                  @id @default(uuid())
+  employee         Employee                @relation("EmployeePtoRequests", fields: [employeeId], references: [id])
+  employeeId       String
+  location         Location                @relation(fields: [locationId], references: [id])
+  locationId       String
+  startDate        DateTime
+  endDate          DateTime
+  requestedMinutes Int
+  status           String
+  requestedAt      DateTime                @default(now())
+  actionedAt       DateTime?
+  actionedById     String?
+  actionedBy       Employee?               @relation("PTOActionedBy", fields: [actionedById], references: [id])
+  memo             String?
+  hcmRequestId     String?                 @unique
+  idempotencyKey   String
+  version          Int                     @default(1)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  adjustmentEvents BalanceAdjustmentEvent[]
+
+  @@unique([employeeId, idempotencyKey])
+}
+
+model AuditEvent {
+  id            String   @id @default(uuid())
+  entityType    String
+  entityId      String
+  action        String
+  payload       String   // stored as JSON string
+  source        String
+  correlationId String?
+  createdAt     DateTime @default(now())
+}
+
+model IdempotencyKey {
+  id        String   @id @default(uuid())
+  scope     String
+  key       String
+  actorId   String   @default("")
+  status    String   @default("PENDING")
+  result    String?  // stored as JSON string
+  createdAt DateTime @default(now())
+
+  @@unique([scope, key, actorId])
+}
+
+model HcmBalanceSnapshot {
+  id                String   @id @default(uuid())
+  employee          Employee @relation(fields: [employeeId], references: [id])
+  employeeId        String
+  location          Location @relation(fields: [locationId], references: [id])
+  locationId        String
+  hcmBalanceMinutes Int
+  source            String
+  hcmAsOf           DateTime
+  externalId        String?  @unique
+  processedAt       DateTime @default(now())
+}
+
+model ReconciliationRun {
+  id             String    @id @default(uuid())
+  runType        String
+  status         String
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  inspectedRows  Int       @default(0)
+  driftCount     Int       @default(0)
+  repairsApplied Int       @default(0)
+  errorsCount    Int       @default(0)
+  lastError      String?
+}
+
+model BalanceAdjustmentEvent {
+  id                      String      @id @default(uuid())
+  balance                 Balance     @relation(fields: [balanceId], references: [id])
+  balanceId               String
+  ptoRequest              PTORequest? @relation(fields: [ptoRequestId], references: [id])
+  ptoRequestId            String?
+  eventType               String
+  deltaMinutes            Int
+  resultingBalanceMinutes Int
+  resultingPendingMinutes Int
+  source                  String
+  externalEventId         String?     @unique
+  createdAt               DateTime    @default(now())
+}
